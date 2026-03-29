@@ -9,7 +9,8 @@
     "scrape": "NODE_OPTIONS='--experimental-sqlite' tsx src/scrapers/run.ts",
     "monitor": "tsx src/monitor.ts",
     "format": "prettier --write 'src/**/*.ts'",
-    "format:check": "prettier --check 'src/**/*.ts'"
+    "format:check": "prettier --check 'src/**/*.ts'",
+    "test": "npx tsx tests/nameNormalizer.test.ts && npx tsx tests/plantTransformer.test.ts && npx tsx tests/seasonTransformer.test.ts"
   },
   "author": "R. Bryce Bond",
   "license": "ISC",
