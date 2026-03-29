@@ -23,58 +23,53 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
   const relationships: RawRelationship[] = [];
   const plantNames = new Set<string>();
 
-  // Find the companion planting table
+  // The Almanac table has 3 columns: Crop, Companion Plants, Benefits
+  // Companion Plants column has plant names separated by <br> tags
+  // Benefits column has descriptions (not antagonists) — we skip it
   $("table tbody tr").each((_i, row) => {
     const cells = $(row).find("td");
-    if (cells.length < 3) return;
+    if (cells.length < 2) return;
 
-    const plantName = $(cells[0]).text().trim();
-    if (!plantName || plantName.toLowerCase() === "crop name") return;
+    // Column 1: Crop name — extract from the <strong> or <a> tag, ignore images
+    const cropCell = $(cells[0]);
+    const cropName =
+      cropCell.find("strong").first().text().trim() || cropCell.find("a").first().text().trim();
+    if (!cropName) return;
 
-    // Add the plant itself
-    if (!plantNames.has(plantName.toLowerCase())) {
-      plantNames.add(plantName.toLowerCase());
+    const normalizedCrop = cleanPlantName(cropName);
+    if (!normalizedCrop) return;
+
+    // Add the crop plant
+    if (!plantNames.has(normalizedCrop.toLowerCase())) {
+      plantNames.add(normalizedCrop.toLowerCase());
       plants.push({
-        name: plantName,
+        name: normalizedCrop,
         category: "vegetable",
         source: SOURCE,
       });
     }
 
-    // Parse companions (column 2)
-    const companionText = $(cells[1]).text().trim();
-    if (companionText) {
-      const companions = parseNameList(companionText);
-      for (const companion of companions) {
-        if (!plantNames.has(companion.toLowerCase())) {
-          plantNames.add(companion.toLowerCase());
-          plants.push({ name: companion, source: SOURCE });
-        }
-        relationships.push({
-          plantName,
-          relatedPlantName: companion,
-          type: "companion",
-          source: SOURCE,
-        });
-      }
-    }
+    // Column 2: Companion plants — names separated by <br> tags
+    const companionCell = $(cells[1]);
+    // Replace <br> with newlines, then split
+    companionCell.find("br").replaceWith("\n");
+    const companionText = companionCell.text();
+    const companionNames = companionText
+      .split("\n")
+      .map((s) => cleanPlantName(s))
+      .filter((s) => s.length > 0);
 
-    // Parse antagonists (column 3)
-    const antagonistText = $(cells[2]).text().trim();
-    if (antagonistText) {
-      const antagonists = parseNameList(antagonistText);
-      for (const antagonist of antagonists) {
-        if (!plantNames.has(antagonist.toLowerCase())) {
-          plantNames.add(antagonist.toLowerCase());
-          plants.push({ name: antagonist, source: SOURCE });
-        }
-        relationships.push({
-          plantName,
-          relatedPlantName: antagonist,
-          type: "antagonist",
-          source: SOURCE,
-        });
+    for (const companion of companionNames) {
+      if (!plantNames.has(companion.toLowerCase())) {
+        plantNames.add(companion.toLowerCase());
+        plants.push({ name: companion, source: SOURCE });
       }
+      relationships.push({
+        plantName: normalizedCrop,
+        relatedPlantName: companion,
+        type: "companion",
+        source: SOURCE,
+      });
     }
   });
 
@@ -96,13 +91,27 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
   return result;
 }
 
-// Splits a text like "Basil, Carrots, Parsley" or "Basil and Carrots" into individual names
-function parseNameList(text: string): string[] {
-  return text
-    .split(/[,;\n]+/)
-    .map((s) => s.replace(/\band\b/gi, ","))
-    .join(",")
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.match(/^(none|n\/a|—|-|–)$/i));
+// Clean a plant name — trim, remove junk, return empty string if invalid
+function cleanPlantName(raw: string): string {
+  let name = raw.trim();
+
+  // Skip empty, single-char, or obvious junk
+  if (name.length <= 1) return "";
+  if (name.match(/^(none|n\/a|—|-|–|source|see|note)$/i)) return "";
+
+  // Skip if it looks like a sentence (has a period followed by a space, or starts with a verb)
+  if (name.includes(". ")) return "";
+  if (name.includes(":")) return "";
+  if (name.length > 40) return "";
+
+  // Remove trailing periods
+  name = name.replace(/\.$/, "");
+
+  // Title case
+  name = name
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
+  return name;
 }
