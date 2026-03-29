@@ -18,31 +18,33 @@ Scrapers → [raw-data queue] → Transform Worker → [clean-data queue] → Lo
 
 ## Tech Stack
 
-| Component  | Technology                    |
-| ---------- | ----------------------------- |
-| Runtime    | Node.js 22+, TypeScript       |
-| Scraping   | Cheerio (HTML parsing)        |
-| Queue      | BullMQ + Redis                |
-| Databases  | SQLite (node:sqlite), Neo4j 5 |
-| Monitoring | Bull Board (web UI)           |
-| Logging    | Winston                       |
-| Containers | Podman Compose (Redis)        |
-| Formatting | Prettier                      |
+| Component  | Technology                                   |
+| ---------- | -------------------------------------------- |
+| Runtime    | Node.js 22+, TypeScript                      |
+| Scraping   | Cheerio (HTML parsing)                       |
+| Queue      | BullMQ + Redis                               |
+| Databases  | SQLite (node:sqlite), Neo4j 5                |
+| Monitoring | Bull Board (web UI)                          |
+| Logging    | Winston                                      |
+| Infra      | Redis via Gardening Planner's Podman Compose |
+| Formatting | Prettier                                     |
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 22+ (see `.nvmrc`)
-- Podman and podman-compose (for Redis)
-- The [Gardening Planner](https://github.com/rbryce90/gardening_planner) app's databases running (SQLite file + Neo4j instance)
+- The [Gardening Planner](https://github.com/rbryce90/gardening_planner) app running via `podman-compose up -d` (provides Neo4j, Redis, and creates the SQLite database)
 
 ### Setup
 
 ```bash
-# Clone the repo
-git clone https://github.com/rbryce90/gardening-etl.git
-cd gardening-etl
+# Make sure the Gardening Planner infrastructure is running
+cd ../gardening_planner
+podman-compose up -d
+
+# Clone the ETL repo (if not already)
+cd ../gardening-etl
 
 # Install dependencies
 npm install
@@ -50,9 +52,6 @@ npm install
 # Copy environment config
 cp .env.example .env
 # Edit .env to set SQLITE_PATH to your gardening_planner's plants.db location
-
-# Start Redis
-podman-compose up -d
 
 # Run the full pipeline
 npm run pipeline
@@ -152,7 +151,6 @@ gardening-etl/
   config/
     sources.json             # Scraper source URLs and CSS selectors
   data/                      # Raw scraped JSON backups (gitignored)
-  podman-compose.yml         # Redis container
   .env.example               # Environment variable template
 ```
 

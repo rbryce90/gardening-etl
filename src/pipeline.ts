@@ -1,10 +1,39 @@
 import { scrapeAlmanac } from "./scrapers/almanacScraper.js";
 import { enqueueRawData } from "./queues/rawDataQueue.js";
+import { rawDataQueue } from "./queues/rawDataQueue.js";
+import { cleanDataQueue } from "./queues/cleanDataQueue.js";
 import logger from "./logger.js";
 
 // Import workers so they start listening
-import "./workers/transformWorker.js";
-import "./workers/loadWorker.js";
+import transformWorker from "./workers/transformWorker.js";
+import loadWorker from "./workers/loadWorker.js";
+
+async function waitForQueuesToDrain(timeoutMs = 60000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const rawWaiting = await rawDataQueue.getWaitingCount();
+    const rawActive = await rawDataQueue.getActiveCount();
+    const cleanWaiting = await cleanDataQueue.getWaitingCount();
+    const cleanActive = await cleanDataQueue.getActiveCount();
+
+    if (rawWaiting === 0 && rawActive === 0 && cleanWaiting === 0 && cleanActive === 0) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  logger.warn("Timeout waiting for queues to drain");
+}
+
+async function shutdown() {
+  logger.info("Shutting down workers...");
+  await transformWorker.close();
+  await loadWorker.close();
+  await rawDataQueue.close();
+  await cleanDataQueue.close();
+  logger.info("=== Pipeline complete ===");
+  process.exit(0);
+}
 
 async function runPipeline() {
   logger.info("=== Starting ETL Pipeline ===");
@@ -32,12 +61,11 @@ async function runPipeline() {
     process.exit(1);
   }
 
-  // Stages 2 & 3 happen async via BullMQ workers
-  // Transform worker picks up from raw-data queue → pushes to clean-data queue
-  // Load worker picks up from clean-data queue → writes to SQLite + Neo4j
-  logger.info(`Scrapers complete. ${enqueued} jobs enqueued. Workers processing in background...`);
-  logger.info("Monitor queue progress at http://localhost:3006");
-  logger.info("Press Ctrl+C to stop workers after processing completes.");
+  logger.info(`Scrapers complete. ${enqueued} jobs enqueued. Waiting for workers...`);
+
+  // Wait for all jobs to process, then shut down
+  await waitForQueuesToDrain();
+  await shutdown();
 }
 
 runPipeline().catch((err) => {
