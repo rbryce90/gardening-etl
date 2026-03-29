@@ -7,8 +7,13 @@ export function loadToSqlite(data: CleanData): void {
   const db = new DatabaseSync(config.sqlite.path);
   db.exec("PRAGMA foreign_keys = ON;");
 
-  const insertPlant = db.prepare(
-    "INSERT OR IGNORE INTO plants (name, category, growth_form, edible_part, family) VALUES (?, ?, ?, ?, ?)",
+  const upsertPlant = db.prepare(
+    `INSERT INTO plants (name, category, growth_form, edible_part, family) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(name) DO UPDATE SET
+       category = excluded.category,
+       growth_form = excluded.growth_form,
+       edible_part = COALESCE(excluded.edible_part, plants.edible_part),
+       family = COALESCE(excluded.family, plants.family)`,
   );
 
   const getPlantId = db.prepare("SELECT id FROM plants WHERE name = ?");
@@ -21,10 +26,10 @@ export function loadToSqlite(data: CleanData): void {
     "INSERT INTO antagonists (plant_id, antagonist_id) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM antagonists WHERE plant_id = ? AND antagonist_id = ?)",
   );
 
-  // Load plants
+  // Load plants (upsert — insert new, update existing)
   let plantCount = 0;
   for (const plant of data.plants) {
-    const result = insertPlant.run(
+    const result = upsertPlant.run(
       plant.name,
       plant.category,
       plant.growthForm,
@@ -60,5 +65,5 @@ export function loadToSqlite(data: CleanData): void {
   }
 
   db.close();
-  logger.info(`SQLite: loaded ${plantCount} new plants, ${relCount} new relationships`);
+  logger.info(`SQLite: upserted ${plantCount} plants, ${relCount} new relationships`);
 }
