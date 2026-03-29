@@ -23,14 +23,11 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
   const relationships: RawRelationship[] = [];
   const plantNames = new Set<string>();
 
-  // The Almanac table has 3 columns: Crop, Companion Plants, Benefits
-  // Companion Plants column has plant names separated by <br> tags
-  // Benefits column has descriptions (not antagonists) — we skip it
   $("table tbody tr").each((_i, row) => {
     const cells = $(row).find("td");
     if (cells.length < 2) return;
 
-    // Column 1: Crop name — extract from the <strong> or <a> tag, ignore images
+    // Column 1: Crop name from <strong> or <a> tag
     const cropCell = $(cells[0]);
     const cropName =
       cropCell.find("strong").first().text().trim() || cropCell.find("a").first().text().trim();
@@ -39,7 +36,6 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
     const normalizedCrop = cleanPlantName(cropName);
     if (!normalizedCrop) return;
 
-    // Add the crop plant
     if (!plantNames.has(normalizedCrop.toLowerCase())) {
       plantNames.add(normalizedCrop.toLowerCase());
       plants.push({
@@ -49,14 +45,15 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
       });
     }
 
-    // Column 2: Companion plants — names separated by <br> tags
-    const companionCell = $(cells[1]);
-    // Replace <br> with newlines, then split
-    companionCell.find("br").replaceWith("\n");
-    const companionText = companionCell.text();
-    const companionNames = companionText
-      .split("\n")
-      .map((s) => cleanPlantName(s))
+    // Column 2: Companion plants — split on <br> using HTML, not text
+    const companionHtml = $(cells[1]).html() || "";
+    const companionNames = companionHtml
+      .split(/<br\s*\/?>/)
+      .map((fragment) => {
+        // Strip any remaining HTML tags from each fragment
+        const text = fragment.replace(/<[^>]+>/g, "").trim();
+        return cleanPlantName(text);
+      })
       .filter((s) => s.length > 0);
 
     for (const companion of companionNames) {
@@ -80,7 +77,6 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
     source: SOURCE,
   };
 
-  // Save raw data to disk as backup
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   const outPath = path.join(DATA_DIR, `${SOURCE}-raw.json`);
   fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
@@ -91,20 +87,23 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
   return result;
 }
 
-// Clean a plant name — trim, remove junk, return empty string if invalid
 function cleanPlantName(raw: string): string {
   let name = raw.trim();
 
-  // Skip empty, single-char, or obvious junk
   if (name.length <= 1) return "";
   if (name.match(/^(none|n\/a|—|-|–|source|see|note)$/i)) return "";
 
-  // Skip if it looks like a sentence (has a period followed by a space, or starts with a verb)
+  // Skip sentences, citations, descriptions
   if (name.includes(". ")) return "";
   if (name.includes(":")) return "";
-  if (name.length > 40) return "";
+  if (name.includes("Source")) return "";
+  if (name.includes("USDA")) return "";
+  if (name.includes("NIH")) return "";
+  if (name.length > 30) return "";
 
-  // Remove trailing periods
+  // Skip if it's all lowercase concatenated words (no spaces but >15 chars = junk)
+  if (!name.includes(" ") && name.length > 15) return "";
+
   name = name.replace(/\.$/, "");
 
   // Title case
