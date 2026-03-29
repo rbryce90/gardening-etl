@@ -1,25 +1,6 @@
 import { RawScrapedData, CleanPlant, CleanRelationship, CleanData } from "../types.js";
+import { normalizeName, normalizeCategory } from "../utils/nameNormalizer.js";
 import logger from "../logger.js";
-
-// Plural → singular mapping for deduplication
-const PLURAL_MAP: Record<string, string> = {
-  beans: "Bean",
-  beets: "Beet",
-  carrots: "Carrot",
-  chives: "Chive",
-  cucumbers: "Cucumber",
-  leeks: "Leek",
-  onions: "Onion",
-  peas: "Pea",
-  peppers: "Pepper",
-  potatoes: "Potato",
-  pumpkins: "Pumpkin",
-  radishes: "Radish",
-  strawberries: "Strawberry",
-  sunflowers: "Sunflower",
-  tomatoes: "Tomato",
-  collards: "Collard",
-};
 
 // Known categories for plants the scraper can't classify
 const KNOWN_CATEGORIES: Record<string, string> = {
@@ -148,34 +129,4 @@ export function transform(raw: RawScrapedData): CleanData {
   );
 
   return { plants, relationships };
-}
-
-function normalizeName(name: string | undefined): string {
-  if (!name) return "";
-
-  let cleaned = name
-    .trim()
-    .replace(/\s+/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-
-  // Handle special compound names
-  if (cleaned === "Zucchini / Summer Squash") cleaned = "Zucchini";
-  if (cleaned === "Bush Beans") cleaned = "Bean";
-  if (cleaned === "Chinese Cabbage") cleaned = "Bok Choy";
-  if (cleaned === "Poached Egg Plant") cleaned = "Poached Egg Plant";
-
-  // Singularize common plurals
-  const plural = PLURAL_MAP[cleaned.toLowerCase()];
-  if (plural) cleaned = plural;
-
-  return cleaned;
-}
-
-function normalizeCategory(category: string | undefined): string {
-  if (!category) return "vegetable";
-  const lower = category.toLowerCase().trim();
-  const valid = ["vegetable", "fruit", "herb", "grain", "nut", "flower"];
-  return valid.includes(lower) ? lower : "vegetable";
 }
