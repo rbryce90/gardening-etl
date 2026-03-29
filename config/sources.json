@@ -1,0 +1,13 @@
+{
+  "almanac": {
+    "name": "Old Farmer's Almanac",
+    "url": "https://www.almanac.com/companion-planting-chart-vegetables",
+    "selectors": {
+      "table": "table",
+      "rows": "tbody tr",
+      "plantName": "td:first-child",
+      "companions": "td:nth-child(2)",
+      "antagonists": "td:nth-child(3)"
+    }
+  }
+}
