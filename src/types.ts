@@ -51,3 +51,52 @@ export interface RawDataJob {
 export interface CleanDataJob {
   data: CleanData;
 }
+
+// Raw planting season data from structured sources
+export interface RawPlantSeason {
+  plantName: string;
+  scientificName?: string;
+  cultivationCategory?: string;
+  hardinessZoneMin?: number;
+  hardinessZoneMax?: number;
+  plantingDepthInches?: number;
+  plantingSpacingInches?: number;
+  source: string;
+}
+
+export interface RawSeasonData {
+  plantSeasons: RawPlantSeason[];
+  fetchedAt: string;
+  source: string;
+}
+
+// Clean planting season data after transformation
+export interface CleanPlantType {
+  plantName: string;
+  name: string;
+  scientificName: string | null;
+  description: string | null;
+  plantingNotes: string | null;
+}
+
+export interface CleanPlantingSeason {
+  plantTypeName: string;
+  zoneName: string;
+  startMonth: string;
+  endMonth: string;
+  method: string | null;
+  notes: string | null;
+}
+
+export interface CleanSeasonData {
+  plantTypes: CleanPlantType[];
+  plantingSeasons: CleanPlantingSeason[];
+}
+
+export interface RawSeasonJob {
+  data: RawSeasonData;
+}
+
+export interface CleanSeasonJob {
+  data: CleanSeasonData;
+}

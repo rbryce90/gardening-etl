@@ -5,6 +5,8 @@ import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import { rawDataQueue } from "./queues/rawDataQueue.js";
 import { cleanDataQueue } from "./queues/cleanDataQueue.js";
+import { rawSeasonQueue } from "./queues/rawSeasonQueue.js";
+import { cleanSeasonQueue } from "./queues/cleanSeasonQueue.js";
 import { config } from "./config.js";
 import logger from "./logger.js";
 
@@ -12,7 +14,12 @@ const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath("/");
 
 createBullBoard({
-  queues: [new BullMQAdapter(rawDataQueue), new BullMQAdapter(cleanDataQueue)],
+  queues: [
+    new BullMQAdapter(rawDataQueue),
+    new BullMQAdapter(cleanDataQueue),
+    new BullMQAdapter(rawSeasonQueue),
+    new BullMQAdapter(cleanSeasonQueue),
+  ],
   serverAdapter,
 });
 

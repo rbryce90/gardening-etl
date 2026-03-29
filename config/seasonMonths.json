@@ -1,0 +1,69 @@
+{
+  "zoneGroups": {
+    "cold": {
+      "zones": [1, 2, 3, 4],
+      "warmSeason": { "start": "May", "end": "June" },
+      "coolSeason": { "start": "April", "end": "June" }
+    },
+    "cool": {
+      "zones": [5, 6],
+      "warmSeason": { "start": "April", "end": "June" },
+      "coolSeason": { "start": "March", "end": "May" }
+    },
+    "moderate": {
+      "zones": [7, 8],
+      "warmSeason": { "start": "March", "end": "May" },
+      "coolSeason": { "start": "February", "end": "April" }
+    },
+    "warm": {
+      "zones": [9, 10],
+      "warmSeason": { "start": "February", "end": "April" },
+      "coolSeason": { "start": "January", "end": "March" }
+    },
+    "hot": {
+      "zones": [11, 12, 13],
+      "warmSeason": { "start": "January", "end": "March" },
+      "coolSeason": { "start": "November", "end": "February" }
+    }
+  },
+  "warmSeasonCrops": [
+    "tomato",
+    "pepper",
+    "eggplant",
+    "cucumber",
+    "squash",
+    "pumpkin",
+    "corn",
+    "okra",
+    "bean",
+    "basil"
+  ],
+  "coolSeasonCrops": [
+    "pea",
+    "lettuce",
+    "spinach",
+    "kale",
+    "broccoli",
+    "cauliflower",
+    "cabbage",
+    "brussels sprout",
+    "collard",
+    "turnip",
+    "radish",
+    "carrot",
+    "beet",
+    "onion",
+    "garlic",
+    "leek",
+    "shallot",
+    "parsnip",
+    "celery",
+    "chard",
+    "mustard",
+    "rhubarb",
+    "artichoke",
+    "asparagus",
+    "parsley",
+    "potato"
+  ]
+}

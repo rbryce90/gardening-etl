@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import fs from "fs";
 import path from "path";
 import logger from "../logger.js";
+import { cleanPlantName } from "../utils/nameNormalizer.js";
 import { RawPlant, RawRelationship, RawScrapedData } from "../types.js";
 
 const SOURCE = "almanac";
@@ -85,32 +86,4 @@ export async function scrapeAlmanac(): Promise<RawScrapedData> {
   });
 
   return result;
-}
-
-function cleanPlantName(raw: string): string {
-  let name = raw.trim();
-
-  if (name.length <= 1) return "";
-  if (name.match(/^(none|n\/a|—|-|–|source|see|note)$/i)) return "";
-
-  // Skip sentences, citations, descriptions
-  if (name.includes(". ")) return "";
-  if (name.includes(":")) return "";
-  if (name.includes("Source")) return "";
-  if (name.includes("USDA")) return "";
-  if (name.includes("NIH")) return "";
-  if (name.length > 30) return "";
-
-  // Skip if it's all lowercase concatenated words (no spaces but >15 chars = junk)
-  if (!name.includes(" ") && name.length > 15) return "";
-
-  name = name.replace(/\.$/, "");
-
-  // Title case
-  name = name
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-
-  return name;
 }
