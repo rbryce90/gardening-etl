@@ -1,6 +1,10 @@
 # Gardening ETL Pipeline
 
-ETL pipeline that scrapes plant companion/antagonist data and planting season data from public sources, transforms and deduplicates it through BullMQ message queues, and loads into the [Gardening Planner](https://github.com/rbryce90/gardening_planner) app's SQLite and Neo4j databases.
+Companion ETL pipeline for the [Gardening Planner](https://github.com/rbryce90/gardening_planner): scrapes plant companion / antagonist data and zone-specific planting seasons from public sources, deduplicates and normalizes through BullMQ message queues, and loads into both SQLite (relational data) and Neo4j (relationship graph).
+
+## Why a queue-based pipeline?
+
+The naive approach — scrape, transform, write — couples three concerns into one process and fails badly: a transient HTTP failure restarts the whole run; a transformer bug corrupts the database; a slow Neo4j write stalls the scraper. Splitting the pipeline into discrete queue-separated stages decouples those failures and turns each stage into something you can retry, replay, or replace without touching the rest. Plus, idempotent loaders mean you can rerun the pipeline daily without creating duplicate data.
 
 ## Architecture
 
@@ -205,6 +209,25 @@ gardening-etl/
 2. Add the scraper call to `src/pipeline.ts` in the `Promise.allSettled` array
 3. Enqueue the result to the appropriate queue (`enqueueRawData` or `enqueueRawSeasonData`)
 4. Run the pipeline — the transform and load stages handle everything else
+
+## Design decisions
+
+A few choices worth calling out, because they bound the project's scope:
+
+- **BullMQ over Kafka / RabbitMQ / SQS.** Redis is already in the sibling app's stack, so adding BullMQ costs nothing operationally. At this scale (≈hundreds of jobs per run, single producer/consumer) the heavier message brokers would be overhead without payoff. If the pipeline ever needed multi-host workers, this decision would deserve revisiting.
+- **Idempotency as a primary requirement, not a bonus.** Every loader uses `INSERT OR IGNORE` (SQLite) or `MERGE` (Neo4j). The pipeline can be rerun on a cron, on demand, or after a partial crash without duplicate rows or duplicate edges. This is what makes "retry with backoff" actually safe.
+- **Pure-function transformers.** Transformers take raw data, return clean data, no I/O. Deterministic, easy to test, and trivially reusable. The 42-test suite is mostly transformers because the loaders and scrapers are thin enough that the value is in the normalization logic.
+- **Single-binary Node CLI, not a service.** The pipeline runs to completion and exits — no long-lived daemon, no health checks, no Kubernetes. The Bull Board monitor is a separate command on a separate port; it's optional, not part of the pipeline. Keeps the operational surface small.
+- **Two databases, one pipeline.** SQLite for relational data (plants, types, seasons), Neo4j for the relationship graph. Both targets receive the same canonicalized records, so the source of truth is the queue, not either database.
+
+## Trade-offs and scope
+
+This is a _personal-scale_ pipeline. Specifically:
+
+- Single Redis instance, single set of workers per queue. No horizontal worker scaling.
+- All four queues run in-process behind one BullMQ Worker each.
+- The test runner chains three `tsx` calls — file 1 failing short-circuits 2 and 3. A real test runner (Vitest, Jest) would fix this; not done because the test count is small.
+- Scrapers cache raw responses in `data/` for replay during development; production-style cache invalidation is out of scope.
 
 ## Related
 
