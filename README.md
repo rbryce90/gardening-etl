@@ -26,7 +26,7 @@ Pipeline orchestrator ───┤
 
 - Fetches 39 plant JSON files from GitHub (heydenberk/gardening-data)
 - Generates zone-specific planting months using warm/cool season crop classification
-- Creates plant types and 400+ planting season entries across 11 USDA zones
+- Creates ~36 plant types and ~200 planting season entries spanning USDA zones 1–13 (11 zones realized from current seed data)
 - Loads to SQLite only (plant_types, planting_seasons tables)
 
 Both flows use BullMQ with 3 retries and exponential backoff. All loaders are idempotent — safe to rerun.
@@ -98,9 +98,9 @@ Current sources:
 BullMQ with Redis provides:
 
 - **Job persistence** — if the pipeline crashes mid-run, unprocessed jobs survive in Redis and resume when workers restart
-- **Retry with backoff** — failed jobs retry 3 times with exponential delay (1s, 2s, 4s)
-- **Dead letter queue** — after 3 failures, bad records are preserved for inspection without blocking the pipeline
-- **Concurrency control** — workers process one job at a time to avoid database write conflicts
+- **Retry with backoff** — failed jobs retry up to 3 attempts with exponential delay (~1s, ~2s, ~4s base)
+- **Failed-job retention** — after exhausting retries, the last 50 failed jobs are kept in BullMQ's `failed` state for inspection (no separate dead-letter queue)
+- **Concurrency control** — each worker processes one job at a time (`concurrency: 1`) to avoid database write conflicts
 - **Monitoring** — Bull Board web UI shows real-time queue status
 
 ### Transformers
@@ -124,21 +124,21 @@ BullMQ with Redis provides:
 
 **SQLite Loader** (`sqliteLoader.ts`):
 
-- `INSERT OR IGNORE` for plants (unique by name)
+- `INSERT … ON CONFLICT(name) DO UPDATE` upsert for plants (unique by name; existing rows get refreshed category/growth_form, with `COALESCE` to preserve any existing edible_part / family)
 - Looks up plant IDs by name for relationship foreign keys
-- Stores companion/antagonist pairs with lower ID first
+- Inserts companion/antagonist pairs with lower ID first, guarded by a `WHERE NOT EXISTS` clause so reruns don't duplicate
 
 **Neo4j Loader** (`neo4jLoader.ts`):
 
-- `MERGE` for plant nodes (matched by name)
+- `MERGE` for plant nodes (matched by `name`), then `SET` to refresh category / growthForm / family
 - `MERGE` for relationships (no duplicate edges)
 - Creates `COMPANION_OF` and `ANTAGONIST_OF` relationships
 
 **Season SQLite Loader** (`seasonSqliteLoader.ts`):
 
-- Auto-creates missing plants with `INSERT OR IGNORE`
-- Upserts plant types (one generic type per plant)
-- Upserts planting seasons (unique by plant_type + zone)
+- Auto-creates missing plants with `INSERT OR IGNORE` (defaults: category `vegetable`, growth form `herbaceous`)
+- Insert-if-missing for plant types (one generic type per plant, keyed by `plant_id + name`)
+- Insert-if-missing for planting seasons (unique by `plant_type_id + zone_id`)
 
 All loaders are idempotent — the pipeline can run daily or weekly without creating duplicate data.
 
@@ -228,6 +228,10 @@ This is a _personal-scale_ pipeline. Specifically:
 - All four queues run in-process behind one BullMQ Worker each.
 - The test runner chains three `tsx` calls — file 1 failing short-circuits 2 and 3. A real test runner (Vitest, Jest) would fix this; not done because the test count is small.
 - Scrapers cache raw responses in `data/` for replay during development; production-style cache invalidation is out of scope.
+
+## Status
+
+v0.1 — feature-complete for the seed data sources listed above. The two flows (companion data + planting seasons) run end-to-end against a local Gardening Planner stack, all 42 unit tests pass, and the loaders are idempotent so reruns are safe.
 
 ## Related
 
