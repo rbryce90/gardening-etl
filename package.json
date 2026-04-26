@@ -13,7 +13,7 @@
     "test": "npx tsx tests/nameNormalizer.test.ts && npx tsx tests/plantTransformer.test.ts && npx tsx tests/seasonTransformer.test.ts"
   },
   "author": "R. Bryce Bond",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@bull-board/api": "^6.20.6",
     "@bull-board/express": "^6.20.6",
